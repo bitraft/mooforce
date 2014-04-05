@@ -172,6 +172,59 @@ var Klass	= (function(){
          var Type = (function(){
             var types = [] ;
  
+            var Events = function() {
+                var events = {} ;
+                return {
+                    addEvent: function(type, fn) {
+                        if (!(fn instanceof Function)) {
+                            throw new Exception('add event need Function argument!');
+                        }
+                        type = _string.removeOn(type) ;
+                        events[type] = _array.include( events[type] || [], fn);
+                        return this;
+                    },
+                    fireEvent: fireEvent = function(type) {
+                        type = _string.removeOn(type) ;
+                        if ( events.hasOwnProperty(type) ) {
+                            var _events = events[type];
+                            for ( var i = 0; i < _events.length; i++) {
+                                if( false === _events[i].apply(this, Array.prototype.slice.call(arguments, 1)) ) {
+                                    return false ;
+                                }
+                            }
+                        }
+                        return true ;
+                    } ,
+                    removeEvent: function(type, fn) {
+                        type = _string.removeOn(type);
+                        if ( events.hasOwnProperty(type) ) {
+                            _array.erase( events[type], fn) ;
+                        }
+                        return this;
+                    }, 
+                    addEvents: function(events) {
+                        for ( var type in events)
+                            if (events.hasOwnProperty(type)) {
+                                this.addEvent(type, events[type]);
+                            }
+                        return this;
+                    },
+                    removeEvents : function(type) {
+                        if (!(type instanceof String) ) {
+                            for (_type in type)
+                                if ( type.hasOwnProperty(_type)) {
+                                    this.removeEvent( _type, type[_type] ) ;
+                                }
+                            return this;
+                        }
+                        type = _string.removeOn(type);
+                        if ( events.hasOwnProperty(type) ) {
+                            delete events[type] ;
+                        }
+                        return this;
+                    }
+                };
+            };
             var Type = function (constructor, properties ){
                 this.constructor    = constructor ;
 
@@ -203,9 +256,9 @@ var Klass	= (function(){
 
                 this.binds   = {} ;
                 this.options = this.parent ? _object.clone(this.parent.options) : {} ;
-                constructor.prototype = this.parent ? _object.clone( this.parent.constructor.prototype ) : {} ;
+                this.implements = [ Events ] ;
 
-                this.implements( properties , true ) ;
+                this.extends( properties ) ;
             };
 
             Type.find = function(constructor){
@@ -242,19 +295,10 @@ var Klass	= (function(){
             };
 
 
-            Type.prototype.implements   = function( properties , first ) {
+            Type.prototype.extends   = function( properties ) {
 
                 if( typeof properties !== 'object' ) {
                     throw new Error('implements properties must be object');
-                }
-
-                var implements = null ;
-                if ( properties.hasOwnProperty('implements') ) {
-                    implements  = roperties['implements'] ;
-                    if( ! implements initialize Array ) {
-                        throw new Error('implements must be array');
-                    }
-                    delete properties['implements'] ;
                 }
 
                 if ( properties.hasOwnProperty('Binds') ) {
@@ -292,13 +336,8 @@ var Klass	= (function(){
                     }, this.parent.constructor.prototype ) ;
                 }
 
-                this.constructor.prototype  = _object.merge( _object.clone(properties) ,  this.constructor.prototype ) ;
+                this.constructor.prototype  = _object.merge( _object.clone(properties) ,  this.parent ? this.parent.constructor.prototype ? {} ) ;
 
-                if( implements ) {
-                    _array.each( implements, function( value ){
-                        this.implements( value ) ;
-                    }, this ) ;
-                }
             }
 
             return Type ;
@@ -347,58 +386,37 @@ var Klass	= (function(){
                 }
                 return this;
             };
-            var $events = {} ;
-            object.addEvent = function(type, fn) {
-                if (!(fn instanceof Function)) {
-                    throw new Exception('add event need Function argument!');
-                }
-                type = _string.removeOn(type) ;
-                $events[type] = _array.include($events[type] || [], fn);
-                return this;
-            };
-            object.addEvents = function(events) {
-                for ( var type in events)
-                    if (events.hasOwnProperty(type)) {
-                        this.addEvent(type, events[type]);
-                    }
-                return this;
-            };
-            object.removeEvent = function(type, fn) {
-                type = _string.removeOn(type);
-                if ( $events.hasOwnProperty(type) ) {
-                    _array.erase($events[type], fn) ;
-                }
-                return this;
-            };
-            object.removeEvents = function(type) {
-                if (!(type instanceof String) ) {
-                    for (_type in type)
-                        if ( type.hasOwnProperty(_type)) {
-                            this.removeEvent( _type, type[_type] ) ;
-                        }
-                    return this;
-                }
-                type = _string.removeOn(type);
-                if ( $events.hasOwnProperty(type)) {
-                    delete $events[type] ;
-                }
-                return this;
-            };
-            object.fireEvent = function(type) {
-                type = _string.removeOn(type) ;
-                if ( $events.hasOwnProperty(type) ) {
-                    var events = $events[type];
-                    for ( var i = 0; i < events.length; i++) {
-                        var fn = events[i];
-                        if( false === fn.apply(this, Array.prototype.slice.call(arguments, 1)) ) {
-                            return false ;
-                        }
-                    }
-                }
-                return true ;
-            };
 
             object.options  = _object.clone(type.options) ;
+
+            _array.each(type.implements, function( properties ){
+                if( properties instanceof Function ) {
+                    properties = properties.call( this ) ;
+                }
+                if( typeof properties !== 'object' ) {
+                    throw new Error('implements "' + String( properties ) + '" is not object' );
+                }
+
+                if ( properties.hasOwnProperty('Binds') ) {
+                    if( ! properties['Binds'] initialize Array ) {
+                        throw new Error('Binds must be array');
+                    }
+                    _array.each( properties['Binds'], function(p) {
+                        if ( properties.hasOwnProperty(p) ) {
+                            var fn  = properties[p] ;
+                            delete properties[p];
+                            if( 'function' !== typeof fn ) {
+                                throw new Error('Binds method "' + p + '" is not function');
+                            }
+                            this[p] = _fn.proxy( fn, this ) ;
+                        } else {
+                            throw new Error('Binds method "' + p + '" not exists');
+                        }
+                    }, type ) ;
+                    delete properties['Binds'];
+                }
+                _object.merge(this, properties );
+            }, object ) ;
 
             var return_value   = type.initialize ? type.initialize.apply(object, args) : object ;
 
@@ -419,12 +437,12 @@ var Klass	= (function(){
             return constructor ;
         } ;
 
-        Klass.implements    = function(constructor, properties ){
+        Klass.implements    = function(constructor, properties ) {
             var type    = Type.find( constructor ) ;
             if( !type ) {
                 throw new Error('implements klass is invalid');
             }
-            type.implements( properties ) ; 
+            type.implements.push( properties ) ; 
         };
 
         return Klass ;
