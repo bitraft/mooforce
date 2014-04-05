@@ -186,9 +186,29 @@ var Klass	= (function(){
                 delete properties['Binds'];
             }
 
+            this.events = {} ;
+            this.options = {} ;
             if ( properties.hasOwnProperty('options')) {
                 this.options = _object.clone( properties['options'] ) ;
                 delete properties['options'] ;
+                _object.each(this.options, function(value, key ){
+                    if( key === 'events' ) {
+                        if( !_object.is(value) ) {
+                            throw new Error('options.events is not object');
+                        }
+                        for(var type in value) if( value.hasOwnProperty(type) ) {
+                            this.addEvent( _string.removeOn(type) , value[type] ) ;
+                        }
+                        delete this.options[ key ] ;
+                    } else {
+                        var type = _string.tryRemoveOn( key ) ;
+                        if( key !== type ) {
+                            this.addEvent(type, value ) ;
+                            delete this.options[ key ] ;
+                        }
+                    }
+                }, this );
+
                 if( this.parent ) this.options = _object.merge( this.options, this.parent.options ) ;
             } else {
                 this.options = this.parent ? this.parent.options : {} ;
@@ -248,6 +268,13 @@ var Klass	= (function(){
             return null ;
         } ;
 
+        Type.prototype.addEvent   = function( type, fn ) {
+            if( typeof fn !== 'function' ) {
+                throw new Error('options.evnet "' + fn + '" is not function');
+            }
+            this.events[type] = _array.include( this.events[type] || [], fn );
+        };
+
         Type.prototype.bind   = function( object ) {
             if( this.parent ) {
                 this.parent.bind( object ) ;
@@ -267,7 +294,7 @@ var Klass	= (function(){
                     object[name]    = _fn.proxy(fn, object ) ;
                 }
             }, this );
-        }
+        };
 
         function initialize(type, object, args ){
             type.bind(object) ;
@@ -309,7 +336,7 @@ var Klass	= (function(){
                 }
                 return this;
             };
-            var $events = {} ;
+            var $events = _object.clone( type.events ) ;
             object.addEvent = function(type, fn) {
                 if (!(fn instanceof Function)) {
                     throw new Exception('add event need Function argument!');
