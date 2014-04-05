@@ -198,6 +198,22 @@ var Klass	= (function(){
                 if( 'function' !== typeof  properties['initialize'] ) {
                     throw new Error('initialize method is not function') ;
                 }
+                if( this.parent && this.parent.initialize ) {
+                    this.initialize = (function(this_initialize, parent_initialize ){
+                        return function(){
+                            var parent  = this.parent ;
+                            this.parent  = parent_initialize ;
+                            var result = this_initialize.apply(this, arguments);
+                            this.parent  = parent ;
+                            return result ;
+                        }
+                    }).call(this, properties['initialize'] , this.parent.initialize  );
+                } else {
+                    this.initialize = properties['initialize'] ;
+                }
+                delete properties['initialize'] ;
+            } else {
+                this.initialize = this.parent ? this.parent.initialize : null ;
             }
 
             constructor.prototype   = {
@@ -231,7 +247,6 @@ var Klass	= (function(){
                 }, this );
             }
 
-            this.options_initialize = null ;
             Type.instances.push( this ) ;
         }
 
@@ -278,7 +293,7 @@ var Klass	= (function(){
         function initialize(type, object, args ){
             type.bind(object, true ) ;
 
-            var $options_initialize = [] ;
+            var options_initialize = true ;
 
             object.setOptions = function(options) {
                 if (typeof options != 'object') {
@@ -289,10 +304,10 @@ var Klass	= (function(){
                     if( typeof options['initialize'] !== 'function' ) {
                         throw new Error('options.initialize is not function');
                     }
-                    if ( $options_initialize ) {
-                        $options_initialize.push( options['initialize'] ) ;
+                    if ( options_initialize ) {
+                        options_initialize  = options['initialize'] ;
                     } else {
-                        scope_initialize	= options['initialize'] ;
+                        scope_initialize    = options['initialize'] ;
                     }
                     delete options['initialize'];
                 }
@@ -370,28 +385,25 @@ var Klass	= (function(){
 
             object.options  = _object.clone(type.options) ;
 
-            var return_value   = object.initialize ? object.initialize.apply(object, args ) : object ;
+            var return_value   = type.initialize ? type.initialize.apply(object, args) : object ;
 
-            var _options_initialize    = $options_initialize ;
-            $options_initialize = null ;
-            _array.each( _options_initialize, function(initialize) {
-                initialize.call(this) ;
-            }, object ) ;
-            _options_initialize = null ;
+            (function(){
+                var fn    = options_initialize ;
+                options_initialize = null ;
+                if( true !== fn ) fn.call(this) ;
+            }).call(object);
 
             return return_value ;
         }
 
-        var Klass   = function ( properties ) {
+        return function ( properties ) {
             var type    = new Type(constructor, properties) ;
             function constructor() {
                 return initialize(type, this, arguments ) ;
             } ;
             return constructor ;
         }
-
-        return Klass ;
-
+        
     })();
 
 })();
