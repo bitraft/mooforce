@@ -198,8 +198,6 @@ var Klass	= (function(){
                 if( 'function' !== typeof  properties['initialize'] ) {
                     throw new Error('initialize method is not function') ;
                 }
-            } else {
-                properties['initialize']    = function(){};
             }
 
             constructor.prototype   = {
@@ -371,19 +369,23 @@ var Klass	= (function(){
             };
 
             object.options  = _object.clone(type.options) ;
-            object.initialize.apply(object, args ) ;
+
+            var return_value   = object.initialize ? object.initialize.apply(object, args ) : object ;
+
             var _options_initialize    = $options_initialize ;
             $options_initialize = null ;
             _array.each( _options_initialize, function(initialize) {
                 initialize.call(this) ;
             }, object ) ;
             _options_initialize = null ;
+
+            return return_value ;
         }
 
         var Klass   = function ( properties ) {
             var type    = new Type(constructor, properties) ;
             function constructor() {
-                initialize(type, this, arguments ) ;
+                return initialize(type, this, arguments ) ;
             } ;
             return constructor ;
         }
