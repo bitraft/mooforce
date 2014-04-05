@@ -248,14 +248,22 @@ var Klass	= (function(){
             return null ;
         } ;
 
-        Type.prototype.bind   = function( object ) {
+        Type.prototype.bind   = function( object, self ) {
             if( this.parent ) {
                 this.parent.bind( object ) ;
             }
 
             _object.each( this.binds, function( fn, name ) {
+                var fn_ = null ;
                 if( object.hasOwnProperty(name) ) {
                     var fn_  = object[ name ] ;
+                } else if( self && this.constructor.prototype.hasOwnProperty(name) ) {
+                    var fn_  = this.constructor.prototype[ name ] ;
+                    if( typeof fn_ !== 'function' ) {
+                        fn_ = null ;
+                    }
+                }
+                if( fn_ ) {
                     object[name]    = function() {
                         var parent  = object.parent ;
                         object.parent  = fn_ ;
@@ -270,7 +278,7 @@ var Klass	= (function(){
         };
 
         function initialize(type, object, args ){
-            type.bind(object) ;
+            type.bind(object, true ) ;
 
             var $options_initialize = [] ;
 
