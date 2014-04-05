@@ -307,7 +307,7 @@ var Klass	= (function(){
                         delete this.options[key] ;
                     } else {
                         var type = _string.tryRemoveOn(key);
-                        if ( key != type ) {
+                        if ( key != type && typeof value === 'function' ) {
                             this.addEvent(type, value ) ;
                             delete this.options[key] ;
                         }
