@@ -186,30 +186,10 @@ var Klass	= (function(){
                 delete properties['Binds'];
             }
 
-            this.events = {} ;
-            this.options = {} ;
             if ( properties.hasOwnProperty('options')) {
                 this.options = _object.clone( properties['options'] ) ;
                 delete properties['options'] ;
-                _object.each(this.options, function(value, key ){
-                    if( key === 'events' ) {
-                        if( !_object.is(value) ) {
-                            throw new Error('options.events is not object');
-                        }
-                        for(var type in value) if( value.hasOwnProperty(type) ) {
-                            this.addEvent( _string.removeOn(type) , value[type] ) ;
-                        }
-                        delete this.options[ key ] ;
-                    } else {
-                        var type = _string.tryRemoveOn( key ) ;
-                        if( key !== type ) {
-                            this.addEvent(type, value ) ;
-                            delete this.options[ key ] ;
-                        }
-                    }
-                }, this );
-
-                if( this.parent ) this.options = _object.merge( this.options, this.parent.options ) ;
+                if( this.parent ) _object.merge( this.options, this.parent.options ) ;
             } else {
                 this.options = this.parent ? this.parent.options : {} ;
             }
@@ -268,13 +248,6 @@ var Klass	= (function(){
             return null ;
         } ;
 
-        Type.prototype.addEvent   = function( type, fn ) {
-            if( typeof fn !== 'function' ) {
-                throw new Error('options.evnet "' + fn + '" is not function');
-            }
-            this.events[type] = _array.include( this.events[type] || [], fn );
-        };
-
         Type.prototype.bind   = function( object ) {
             if( this.parent ) {
                 this.parent.bind( object ) ;
@@ -318,25 +291,27 @@ var Klass	= (function(){
                     delete options['initialize'];
                 }
 
-                for ( var p in options) if ( options.hasOwnProperty(p) ) {
-                    var _type = _string.tryRemoveOn(p);
-                    if ( p != _type ) {
-                        this.addEvent(_type, options[p]) ;
-                        delete options[p] ;
-                    } else if (p == 'events') {
-                        this.addEvents(options[p]);
-                        delete options[p] ;
-                    }
-                }
+                this.options = _object.merge( _object.clone(options), this.options ) ;
 
-                _object.merge( this.options, options ) ;
+                _object.each(this.options, function(value, key ) {
+                    if ( key == 'events') {
+                        this.addEvents(value) ;
+                        delete this.options[key] ;
+                    } else {
+                        var type = _string.tryRemoveOn(key);
+                        if ( key != type ) {
+                            this.addEvent(type, value ) ;
+                            delete this.options[key] ;
+                        }
+                    }
+                }, this ) ;
 
                 if ( scope_initialize ) {
                     scope_initialize.call(this) ;
                 }
                 return this;
             };
-            var $events = _object.clone( type.events ) ;
+            var $events = {} ;
             object.addEvent = function(type, fn) {
                 if (!(fn instanceof Function)) {
                     throw new Exception('add event need Function argument!');
@@ -387,8 +362,7 @@ var Klass	= (function(){
                 return true ;
             };
 
-            object.options  = {} ;
-            object.setOptions( type.options ) ;
+            object.options  = _object.clone(type.options) ;
             object.initialize.apply(object, args ) ;
             var _options_initialize    = $options_initialize ;
             $options_initialize = null ;
