@@ -6,19 +6,31 @@
 var Klass	= (function(){
 	
 	var _fn	= (function(){
-		var fn	= arguments.callee ;
+		var fn	= {} ;
 
-		fn.proxy = function(fn, obj) {
-			return function() {
-				return fn.apply(obj, arguments);
-			};
-		};
+        fn.proxy = function(fn, obj) {
+            return function() {
+                return fn.apply(obj, arguments);
+            };
+        };
+
+        fn.parent = function( _self, _parent ) {
+            return function(){
+                    var current = this.$super ;
+                    this.$super = _parent ;
+                    var result  = _self.apply(this, arguments);
+                    this.$super = current ;
+                    return result ;
+                };
+        };
 
 		return fn ;
 	})();
 
     var _string = (function() {
-        var string = arguments.callee;
+        
+        var string = {} ;
+
         string.removeOn = function(string) {
             return string.replace(/^on([A-Z])/, function(full, first) {
                 return first.toLowerCase();
@@ -35,7 +47,7 @@ var Klass	= (function(){
     })();
 
 	var _array = (function(){
-		var array	= arguments.callee ;
+		var array	= {} ;
 
         if ( Array.prototype.hasOwnProperty('indexOf') ) {
             array.include = function(array, item) {
@@ -98,7 +110,8 @@ var Klass	= (function(){
 	
 	var _object = (function(){
 
-        var object	= arguments.callee ;
+        var object	= {} ;
+
         object.is  = function(obj){
             if( obj instanceof Array ) {
                 return false ;
@@ -155,140 +168,142 @@ var Klass	= (function(){
 	})();
 
 	return (function() {
+ 
+         var Type = (function(){
+            var types = [] ;
+ 
+            var Type = function (constructor, properties ){
+                this.constructor    = constructor ;
 
-        function Type(constructor, properties ){
-            this.constructor    = constructor ;
-
-            if ( properties.hasOwnProperty('extends') ) {
-                this.parent = Type.find( properties['extends'] ) ;
-                if( !this.parent ) {
-                    throw new Error('extends is invalid');
+                if ( properties.hasOwnProperty('extends') ) {
+                    this.parent = arguments.callee.find( properties['extends'] ) ;
+                    if( !this.parent ) {
+                        throw new Error('extends is invalid');
+                    }
+                    delete properties['extends'] ;
+                } else {
+                    this.parent = null ;
                 }
-                delete properties['extends'] ;
-            } else {
-                this.parent = null ;
-            }
 
-            this.binds   = {} ;
-            if ( properties.hasOwnProperty('Binds') ) {
-                _array.each( properties['Binds'], function(p) {
-                    if ( properties.hasOwnProperty(p) ) {
-                        var fn  = properties[p] ;
-                        delete properties[p];
-                        if( 'function' !== typeof fn ) {
-                            throw new Error('bind method "' + p + '" is not function');
-                        }
-                        this.binds[p] = fn ;
+                types.push( this ) ;
+
+                if ( properties.hasOwnProperty('initialize') ) {
+                    if( 'function' !== typeof  properties['initialize'] ) {
+                        throw new Error('initialize method is not function') ;
+                    }
+                    if( this.parent && this.parent.initialize ) {
+                        this.initialize = _fn.parent(properties['initialize'], this.parent.initialize) ;
                     } else {
-                        throw new Error('bind method "' + p + '" not exists');
+                        this.initialize = properties['initialize'] ;
+                    }
+                    delete properties['initialize'] ;
+                } else {
+                    this.initialize = this.parent ? this.parent.initialize : null ;
+                }
+
+                this.binds   = {} ;
+                this.options = this.parent ? _object.clone(this.parent.options) : {} ;
+                constructor.prototype = this.parent ? _object.clone( this.parent.constructor.prototype ) : {} ;
+
+                this.implements( properties , true ) ;
+            };
+
+            Type.find = function(constructor){
+                    var len = types.length ;
+                    for ( var i = 0; i < len ; i++) {
+                        if( types[i].constructor === constructor ) {
+                            return types[i] ;
+                        }
+                    }
+                    return null ;
+                } ;
+
+            Type.prototype.bind   = function( object, self ) {
+                if( this.parent ) {
+                    this.parent.bind( object ) ;
+                }
+
+                _object.each( this.binds, function( fn, name ) {
+                    var parent = null ;
+                    if( object.hasOwnProperty(name) ) {
+                        var parent  = object[ name ] ;
+                    } else if( self && this.constructor.prototype.hasOwnProperty(name) ) {
+                        var parent  = this.constructor.prototype[ name ] ;
+                        if( typeof parent !== 'function' ) {
+                            parent = null ;
+                        }
+                    }
+                    if( parent ) {
+                        object[name]    = _fn.proxy( _fn.parent( fn, parent ) , object );
+                    } else {
+                        object[name]    = _fn.proxy(fn, object ) ;
                     }
                 }, this ) ;
-                delete properties['Binds'];
-            }
+            };
 
-            if ( properties.hasOwnProperty('options')) {
-                this.options = _object.clone( properties['options'] ) ;
-                delete properties['options'] ;
-                if( this.parent ) _object.merge( this.options, this.parent.options ) ;
-            } else {
-                this.options = this.parent ? this.parent.options : {} ;
-            }
 
-            if ( properties.hasOwnProperty('initialize') ) {
-                if( 'function' !== typeof  properties['initialize'] ) {
-                    throw new Error('initialize method is not function') ;
+            Type.prototype.implements   = function( properties , first ) {
+
+                if( typeof properties !== 'object' ) {
+                    throw new Error('implements properties must be object');
                 }
-                if( this.parent && this.parent.initialize ) {
-                    this.initialize = (function(this_initialize, parent_initialize ){
-                        return function(){
-                            var parent  = this.parent ;
-                            this.parent  = parent_initialize ;
-                            var result = this_initialize.apply(this, arguments);
-                            this.parent  = parent ;
-                            return result ;
-                        }
-                    }).call(this, properties['initialize'] , this.parent.initialize  );
-                } else {
-                    this.initialize = properties['initialize'] ;
-                }
-                delete properties['initialize'] ;
-            } else {
-                this.initialize = this.parent ? this.parent.initialize : null ;
-            }
 
-            constructor.prototype   = {
-
-            } ;
-
-            for(var name in properties)  if( properties.hasOwnProperty(name) ) {
-                constructor.prototype[name] = properties[name] ;
-            }
-
-            if( this.parent ) {
-                _object.each( this.parent.constructor.prototype, function( property, name ){
-                    if( !constructor.prototype.hasOwnProperty(name) ) {
-                        constructor.prototype[name] = _object.clone(property) ;
-                    } else {
-                        var this_property   = constructor.prototype[name] ;
-                        if( 'function' !== typeof(this_property) ) {
-                            return ;
-                        }
-                        if( 'function' !== typeof(property) ) {
-                            return ;
-                        }
-                        constructor.prototype[name] = function() {
-                            var parent  = this.parent ;
-                            this.parent  = property ;
-                            var result = this_property.apply(this, arguments);
-                            this.parent  = parent ;
-                            return result ;
-                        };
+                var implements = null ;
+                if ( properties.hasOwnProperty('implements') ) {
+                    implements  = roperties['implements'] ;
+                    if( ! implements initialize Array ) {
+                        throw new Error('implements must be array');
                     }
-                }, this );
-            }
-
-            Type.instances.push( this ) ;
-        }
-
-        Type.instances  = [] ;
-        Type.find = function(constructor){
-            var len = Type.instances.length ;
-            for ( var i = 0; i < len ; i++) {
-                if( Type.instances[i].constructor === constructor ) {
-                    return Type.instances[i] ;
+                    delete properties['implements'] ;
                 }
-            }
-            return null ;
-        } ;
 
-        Type.prototype.bind   = function( object, self ) {
-            if( this.parent ) {
-                this.parent.bind( object ) ;
-            }
-
-            _object.each( this.binds, function( fn, name ) {
-                var fn_ = null ;
-                if( object.hasOwnProperty(name) ) {
-                    var fn_  = object[ name ] ;
-                } else if( self && this.constructor.prototype.hasOwnProperty(name) ) {
-                    var fn_  = this.constructor.prototype[ name ] ;
-                    if( typeof fn_ !== 'function' ) {
-                        fn_ = null ;
+                if ( properties.hasOwnProperty('Binds') ) {
+                    if( ! properties['Binds'] initialize Array ) {
+                        throw new Error('Binds must be array');
                     }
+                    _array.each( properties['Binds'], function(p) {
+                        if ( properties.hasOwnProperty(p) ) {
+                            var fn  = properties[p] ;
+                            delete properties[p];
+                            if( 'function' !== typeof fn ) {
+                                throw new Error('Binds method "' + p + '" is not function');
+                            }
+                            this.binds[p] = fn ;
+                        } else {
+                            throw new Error('Binds method "' + p + '" not exists');
+                        }
+                    }, type ) ;
+                    delete properties['Binds'];
                 }
-                if( fn_ ) {
-                    object[name]    = function() {
-                        var parent  = object.parent ;
-                        object.parent  = fn_ ;
-                        var result = fn.apply(object, arguments);
-                        object.parent  = parent ;
-                        return result ;
-                    };
-                } else {
-                    object[name]    = _fn.proxy(fn, object ) ;
+
+                if ( properties.hasOwnProperty('options') ) {
+                    this.options = _object.merge( _object.clone(properties['options'] ) , this.options) ;
+                    delete properties['options'] ;
                 }
-            }, this );
-        };
+
+
+                if(  this.parent ) {
+                    _object.each(properties, function(value, name){
+                        if( value initialize Function && this.hasOwnProperty(name) && this[name] instanceof Function ) {
+                            properties[name]  =  _fn.parent(value, this[name] ) ;
+                        } else {
+                            properties[name]  =  _object.clone(value);
+                        } 
+                    }, this.parent.constructor.prototype ) ;
+                }
+
+                this.constructor.prototype  = _object.merge( _object.clone(properties) ,  this.constructor.prototype ) ;
+
+                if( implements ) {
+                    _array.each( implements, function( value ){
+                        this.implements( value ) ;
+                    }, this ) ;
+                }
+            }
+
+            return Type ;
+        })() ;
+
 
         function initialize(type, object, args ){
             type.bind(object, true ) ;
@@ -396,14 +411,23 @@ var Klass	= (function(){
             return return_value ;
         }
 
-        return function ( properties ) {
+        var Klass  = function ( properties ) {
             var type    = new Type(constructor, properties) ;
             function constructor() {
                 return initialize(type, this, arguments ) ;
             } ;
             return constructor ;
-        }
-        
+        } ;
+
+        Klass.implements    = function(constructor, properties ){
+            var type    = Type.find( constructor ) ;
+            if( !type ) {
+                throw new Error('implements klass is invalid');
+            }
+            type.implements( properties ) ; 
+        };
+
+        return Klass ;
     })();
 
 })();
