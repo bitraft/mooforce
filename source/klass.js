@@ -226,8 +226,7 @@ var Klass	= (function(){
                 };
             };
             var Type = function (constructor, properties ){
-                this.constructor    = constructor ;
-
+                
                 if ( properties.hasOwnProperty('extends') ) {
                     this.parent = arguments.callee.find( properties['extends'] ) ;
                     if( !this.parent ) {
@@ -238,6 +237,7 @@ var Klass	= (function(){
                     this.parent = null ;
                 }
 
+                this.constructor    = constructor ;
                 types.push( this ) ;
 
                 if ( properties.hasOwnProperty('initialize') ) {
@@ -325,6 +325,16 @@ var Klass	= (function(){
                     delete properties['options'] ;
                 }
 
+                if ( properties.hasOwnProperty('implements') ) {
+                    if( properties['implements'] instanceof Array ) {
+                        _array.each(properties['implements'], function(value) {
+                            this.push(value) ;
+                        }, this.implements) ;
+                    } else {
+                        this.implements.push( properties['implements'] ) ;
+                    }
+                    delete properties['implements'] ;
+                }
 
                 if(  this.parent ) {
                     _object.each(properties, function(value, name){
