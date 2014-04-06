@@ -5,24 +5,88 @@
 
 var Klass	= (function(){
 	
-	var _fn	= (function(){
-		var fn	= {} ;
+    var Type   = (function() {
+        var Type = function ( properties ) {
+            function type( self ) {
+                this.self = self ;
+            }
+            Type.each.call(properties, function(property, name, type ) {
+                if( !type.hasOwnProperty(name) ) this[name]  = function() {
+                    return property.apply( arguments[0],  Array.prototype.slice.call(arguments, 1) ) ;
+                } ;
+                if( !type.prototype.hasOwnProperty(name) ) {
+                    type.prototype[name]    = prototype ;
+                }
+            }, type );
+            return type ;
+        }
 
-        fn.proxy = function(fn, obj) {
-            return function() {
-                return fn.apply(obj, arguments);
-            };
+        Type.chain    = function(type, properties ) {
+            Type.each.call(properties, function(property, name, type ){
+                if( !type.hasOwnProperty(name) ) this[name]  = function() {
+                    return property.apply( arguments[0],  Array.prototype.slice.call(arguments, 1) ) ;
+                } ;
+                if( !type.prototype.hasOwnProperty(name) ) {
+                    type.prototype[name]    = function(){
+                        this.self = prototype.apply( this.self, arguments) ;
+                        return this.self ;
+                    } ;
+                }
+            }, type ) ;
+        }
+
+        Type.each   = function(fn, bind ){
+            for(var p in this ) if( this.hasOwnProperty(p) ) {
+                fn.call( bind || this , this[p], p , bind || this ) ;
+            }
         };
+        
+        return Type ;
+    })();
 
-        fn.parent = function( _self, _parent ) {
-            return function(){
-                    var current = this.$super ;
-                    this.$super = _parent ;
-                    var result  = _self.apply(this, arguments);
-                    this.$super = current ;
-                    return result ;
+	var $fn	= (function(){
+        var enumerables = true;
+        for (var i in {toString: 1}) enumerables = null;
+        if (enumerables) enumerables = ['hasOwnProperty', 'valueOf', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString', 'toString', 'constructor'];
+
+		var fn	= new Type({
+            
+        });
+
+        Type.chain(fn, {
+            overloadSetter: function(usePlural){
+                var self = this ;
+                return function(a, b){
+                    if (a == null) return this;
+                    if (usePlural || typeof a != 'string'){
+                        for (var k in a) self.call(this.self, k, a[k]);
+                        if (enumerables) for (var i = enumerables.length; i--;){
+                            k = enumerables[i];
+                            if (a.hasOwnProperty(k)) self.call(this, k, a[k]);
+                        }
+                    } else {
+                        self.call(this, a, b);
+                    }
+                    return this;
                 };
-        };
+            },
+            proxy: function(obj) {
+                var fn = this ;
+                return function() {
+                    return fn.apply(obj, arguments);
+                };
+            },
+            parent: function( _parent ) {
+                var _self = this ;
+                return function(){
+                        var current = this.$super ;
+                        this.$super = _parent ;
+                        var result  = _self.apply(this, arguments);
+                        this.$super = current ;
+                        return result ;
+                    };
+            }
+        });
 
 		return fn ;
 	})();
