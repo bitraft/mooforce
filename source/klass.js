@@ -324,10 +324,11 @@ var Klass	= (function(){
                 if( properties instanceof Function ) {
                     properties = properties.call( object, this.Constructor ) ;
                 } else {
-                    if( typeof properties !== 'object' ) {
-                        throw new Error('implements "' + String( properties ) + '" is not object' );
-                    }
                     properties  = $object.clone( properties ) ;
+                }
+
+                if( $object.is(properties) ) {
+                    throw new Error('implements "' + String( properties ) + '" is not object' );
                 }
 
                 if ( properties.hasOwnProperty('initialized') ) {
