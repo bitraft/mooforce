@@ -379,10 +379,11 @@ var Klass	= (function(){
                 return this;
             } ,
             fireEvent: fireEvent = function(type) {
+                var args =  Array.prototype.slice.call(arguments, 1) ;
                 if ( events.hasOwnProperty(type) ) {
                     var _events = events[type];
                     for ( var i = 0; i < _events.length; i++) {
-                        if( false === _events[i].apply(this, Array.prototype.slice.call(arguments, 1)) ) {
+                        if( false === _events[i].apply(this,args) ) {
                             return false ;
                         }
                     }
