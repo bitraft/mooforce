@@ -266,7 +266,7 @@ var Klass	= (function(){
 
         Class.prototype.extends   = function( properties ) {
 
-            if( typeof properties !== 'object' ) {
+            if( !$object.is(properties) ) {
                 throw new Error('implements properties must be object');
             }
 
@@ -454,9 +454,6 @@ var Klass	= (function(){
                 } ,
                 setOptions: function(options) {
                     if( options ) {
-                        if ( typeof options != 'object') {
-                            throw new Error('options is not object') ;
-                        }
                         this.options = $object.merge( options , this.options ) ;
                     }
 
