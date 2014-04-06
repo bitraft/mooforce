@@ -35,8 +35,8 @@ var Klass	= (function(){
                 this[name]  = property ;
                 if( !type.prototype.hasOwnProperty(name) ) {
                     type.prototype[name]    = function() {
-                        this.self = property.apply( this, Array.prototype.slice.call(arguments).unshift( this.self ) ) ;
-                        return this.self ;
+                        this.self = property.apply(this, Array.prototype.slice.call(arguments).unshift( this.self ) ) ;
+                        return this ;
                     } ;
                 }
             }, type ) ;
