@@ -134,12 +134,12 @@ var Klass	= (function(){
 	var $object = (function() {
         var object	= new Type({
             is: function(self){
-                if( self instanceof Array ) {
+                if( !self || self instanceof Array ) {
                     return false ;
                 }
                 return 'object' === typeof self ;
             },
-            each: Type.each,
+            each: Type.each ,
             merge: function( self, source ){
                 if( object.is(self) && object.is( source ) ) {
                     for(var k in source ) if( source.hasOwnProperty(k) ) {
@@ -153,36 +153,40 @@ var Klass	= (function(){
                 return self ;
             },
             clone: function(self) {
-                if (self instanceof Array) {
-                    var len = self.length;
-                    var o = new Array(len);
-                    for ( var i = 0; i < len; i++) {
-                        o[i] = arguments.callee(self[i]);
+                if( self ) {
+                    if (self instanceof Array) {
+                        var len = self.length;
+                        var o = new Array(len);
+                        for ( var i = 0; i < len; i++) {
+                            o[i] = arguments.callee(self[i]);
+                        }
+                        return o;
+                    } else if (  typeof self === 'object' ) {
+                        var o = new Object ;
+                        for ( var i in self)  if ( self.hasOwnProperty(i) ) {
+                            o[i] = arguments.callee(self[i]);
+                        }
+                        return o ;
                     }
-                    return o;
-                } else if (  typeof self === 'object' ) {
-                    var o = new Object ;
-                    for ( var i in self)  if ( self.hasOwnProperty(i) ) {
-                        o[i] = arguments.callee(self[i]);
-                    }
-                    return o ;
                 }
                 return self ;
             },
             reset: function(self){
-                for (var key in self) {
+                if( self ) for (var key in self) {
                     var value = self[key] ;
-                    if (value instanceof Array) {
-                        var len = value.length;
-                        var o = new Array(len) ;
-                        for ( var i = 0; i < len; i++) {
-                            o[i] = arguments.callee(value[i]);
+                    if( value ) {
+                        if (value instanceof Array) {
+                            var len = value.length;
+                            var o = new Array(len) ;
+                            for ( var i = 0; i < len; i++) {
+                                o[i] = arguments.callee(value[i]);
+                            }
+                            self[key] = o ;
+                        } else if ( typeof value == 'object' ) {
+                            var F = function(){} ;
+                            F.prototype = value ;
+                            self[key] = arguments.callee(new F);
                         }
-                        self[key] = o ;
-                    } else if ( typeof value == 'object' ) {
-                        var F = function(){} ;
-                        F.prototype = value ;
-                        self[key] = arguments.callee(new F);
                     }
                 }
                 return self ;
