@@ -344,7 +344,7 @@ var Klass	= (function(){
                             var fn  = properties[p] ;
                             delete properties[p];
                             if( $fn.is(fn) ) {
-                                this[p] = _fn.proxy( fn, this ) ;
+                                this[p] = $fn.proxy( fn, this ) ;
                             } else {
                                 throw new Error('Binds method "' + p + '" is not function');
                             }
