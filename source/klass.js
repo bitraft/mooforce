@@ -336,7 +336,7 @@ var Klass = (function() {
                     properties = $object.clone(properties);
                 }
 
-                if ($object.is(properties)) {
+                if ( !$object.is(properties) ) {
                     throw new Error('implements "' + String(properties) + '" is not object');
                 }
 
