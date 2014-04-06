@@ -10,43 +10,41 @@ var Klass	= (function(){
             function type( self ) {
                 this.self  = self ;
             }
-            Type.implement(type, properties) ;
             Type.implement(type, {
-                is: function(){
-                    return this instanceof prototype ;
+                is: function(self){
+                    return self instanceof prototype ;
                 }
             }) ;
+            Type.implement(type, properties) ;
             return type ;
         };
 
         Type.implement    = function(type, properties ) {
-            Type.each.call(properties, function(property, name ) {
-                if( !type.hasOwnProperty(name) ) this[name]  = function() {
-                    return property.apply( arguments[0],  Array.prototype.slice.call(arguments, 1) ) ;
-                } ;
-                if( ! this.prototype.hasOwnProperty(name) ) {
-                    this.prototype[name]    = property ;
+            Type.each(properties, function(property, name ) {
+                this[name]  = property ;
+                if( !this.prototype.hasOwnProperty(name) ) {
+                    this.prototype[name]    = function() {
+                        return property.apply(this, Array.prototype.slice.call(arguments).unshift( this.self ) );
+                    } ;
                 }
             }, type );
         };
 
         Type.chain    = function(type, properties ) {
-            Type.each.call(properties, function(property, name, type ){
-                if( !type.hasOwnProperty(name) ) this[name]  = function() {
-                    return property.apply( arguments[0],  Array.prototype.slice.call(arguments, 1) ) ;
-                } ;
+            Type.each(properties, function(property, name, type ) {
+                this[name]  = property ;
                 if( !type.prototype.hasOwnProperty(name) ) {
-                    type.prototype[name]    = function(){
-                        this.self = property.apply( this.self, arguments) ;
+                    type.prototype[name]    = function() {
+                        this.self = property.apply( this, Array.prototype.slice.call(arguments).unshift( this.self ) ) ;
                         return this.self ;
                     } ;
                 }
             }, type ) ;
         };
 
-        Type.each   = function(fn, bind ){
-            for(var p in this ) if( this.hasOwnProperty(p) ) {
-                fn.call( bind || this , this[p], p , bind || this ) ;
+        Type.each   = function(self, fn, bind ){
+            for(var p in self ) if( self.hasOwnProperty(p) ) {
+                fn.call( bind || self , self[p], p , bind || self ) ;
             }
         };
         
@@ -63,19 +61,17 @@ var Klass	= (function(){
         }, Function );
 
         Type.chain(fn, {
-            proxy: function(obj) {
-                var fn = this ;
+            proxy: function( self , obj) {
                 return function() {
-                    return fn.apply(obj, arguments);
+                    return self.apply(obj, arguments);
                 };
             },
-            parent: function( _parent ) {
-                var _self = this ;
+            parent: function( self, parent ) {
                 return function(){
-                        var current = this.$super ;
-                        this.$super = _parent ;
-                        var result  = _self.apply(this, arguments);
-                        this.$super = current ;
+                        var current = this.parent ;
+                        this.parent = parent ;
+                        var result  = self.apply(this, arguments);
+                        this.parent = current ;
                         return result ;
                     };
             }
@@ -87,64 +83,47 @@ var Klass	= (function(){
 	var $array = (function(){
 
 		var array	= new Type({
-            each: function(fn, bind) {
-                for ( var i = 0; i < this.length; i++) {
-                    fn.call(bind || this, this[i], i );
+            each: function(self, fn, bind) {
+                for ( var i = 0; i < self.length; i++) {
+                    fn.call(bind || self, self[i], i );
                 }
             },
-            some: function( fn, bind) {
-                for ( var i = 0; i < this.length; i++) {
-                    if( fn.call(bind || this, array[i], i ) ) {
-                        return true ;
-                    }
+            erase: function(self, item) {
+                for ( var i = self.length; i--;) {
+                    if ( self[i] === item)
+                        self.splice(i, 1);
                 }
-            },
-            every:  function( fn, bind) {
-                for ( var i = 0; i < this.length; i++) {
-                    if( ! fn.call(bind || this, this[i], i ) ) {
-                        return false ;
-                    }
-                }
-                return true ;
-            },
-
-            erase: function(item) {
-                for ( var i = this.length; i--;) {
-                    if ( this[i] === item)
-                        this.splice(i, 1);
-                }
-                return this ;
             }
         }, Array );
 
         if ( Array.prototype.hasOwnProperty('indexOf') ) {
             Type.chain(array, {
-                include: function(item){
-                    if (-1 == this.indexOf(item))
-                        this.push(item);
-                    return this;
+                include: function(self, item){
+                    if (-1 == self.indexOf(item))
+                        self.push(item);
+                    return self ;
                 }
             });
             Type.implement(array, {
-                contains: function(item) {
-                    return -1 != this.indexOf(item);
+                contains: function(self, item) {
+                    return -1 != self.indexOf(item);
                 }
             });
         } else {
             Type.chain(array, {
-                include: function(item){
-                    for ( var i = this.length; i--;) {
-                        if (this[i] == item)
-                            return this;
+                include: function(self, item){
+                    for ( var i = self.length; i--;) {
+                        if (self[i] == item)
+                            return self;
                     }
-                    this.push(item);
-                    return this;
+                    self.push(item);
+                    return self;
                 }
             });
             Type.implement({
-                contains: function(item) {
-                    for ( var i = this.length; i--;) {
-                        if (this[i] == item)
+                contains: function(self, item) {
+                    for ( var i = self.length; i--;) {
+                        if (self[i] == item)
                             return true;
                     }
                     return false;
@@ -157,74 +136,69 @@ var Klass	= (function(){
 	
 	var $object = (function() {
         var object	= new Type({
-            is: function(){
-                if( this instanceof Array ) {
+            is: function(self){
+                if( self instanceof Array ) {
                     return false ;
                 }
-                if( this instanceof Function ) {
-                    return false ;
-                }
-                return 'object' === typeof this ;
+                return 'object' === typeof self ;
             },
             each: Type.each,
-            merge: function( source ){
-                if( object.is(this) ) {
-                    if( object.is( source ) ) {
-                        for(var k in source ) if( source.hasOwnProperty(k) ) {
-                            if( this.hasOwnProperty(k) ) {
-                                this[k]   = arguments.callee.call( this[k], source[k] );
-                            } else {
-                                this[k]   = object.clone(source[k]) ;
-                            }
+            merge: function( self, source ){
+                if( object.is(self) && object.is( source ) ) {
+                    for(var k in source ) if( source.hasOwnProperty(k) ) {
+                        if( self.hasOwnProperty(k) ) {
+                            arguments.callee( self[k], source[k] );
+                        } else {
+                            self[k]   = object.clone(source[k]) ;
                         }
                     }
                 }
-                return this ;
+                return self ;
             },
-            clone: function() {
-                if (this instanceof Array) {
-                    var len = this.length;
-                    var _obj = new Array(len);
+            clone: function(self) {
+                if (self instanceof Array) {
+                    var len = self.length;
+                    var o = new Array(len);
                     for ( var i = 0; i < len; i++) {
-                        _obj[i] = arguments.callee.call(this[i]);
+                        o[i] = arguments.callee(self[i]);
                     }
-                    return _obj;
-                } else if ( typeof this == 'object' ) {
-                    var _obj = new Object;
-                    for ( var i in this)  if ( this.hasOwnProperty(i) ) {
-                        _obj[i] = arguments.callee.call(this[i]);
+                    return o;
+                } else if (  typeof self === 'object' ) {
+                    var o = new Object ;
+                    for ( var i in self)  if ( self.hasOwnProperty(i) ) {
+                        o[i] = arguments.callee(self[i]);
                     }
-                    return _obj;
+                    return o ;
                 }
-                return this ;
+                return self ;
             },
-            reset: function(){
-                for (var key in this) {
-                    var value = this[key] ;
+            reset: function(self){
+                for (var key in self) {
+                    var value = self[key] ;
                     if (value instanceof Array) {
                         var len = value.length;
-                        var _obj = new Array(len) ;
+                        var o = new Array(len) ;
                         for ( var i = 0; i < len; i++) {
-                            _obj[i] = arguments.callee.call(value[i]);
+                            o[i] = arguments.callee(value[i]);
                         }
-                        object[key] = _obj ;
+                        self[key] = o ;
                     } else if ( typeof value == 'object' ) {
                         var F = function(){} ;
                         F.prototype = value ;
-                        this[key] = arguments.callee.call(new F);
+                        self[key] = arguments.callee(new F);
                     }
                 }
-                return this ;
+                return self ;
             }
         }, Object ) ;
 
 		return object ;
-	})();
+	})() ;
 
-    var Class = (function(){
+    var Class = (function() {
         var classes = [] ;
 
-        function Class(constructor, properties ){
+        function Class(constructor, properties ) {
 
             if ( properties.hasOwnProperty('extends') ) {
                 this.parent = arguments.callee.find( properties['extends'] ) ;
@@ -244,7 +218,7 @@ var Klass	= (function(){
                     throw new Error('initialize method is not function') ;
                 }
                 if( this.parent && this.parent.initialize ) {
-                    this.initialize = _fn.parent(properties['initialize'], this.parent.initialize) ;
+                    this.initialize = $fn.parent(properties['initialize'], this.parent.initialize) ;
                 } else {
                     this.initialize = properties['initialize'] ;
                 }
@@ -270,29 +244,24 @@ var Klass	= (function(){
             return null ;
         } ;
 
-        Class.prototype.bind   = function( object, self ) {
+        Class.prototype.bind   = function( object, parent_prototype ) {
             if( this.parent ) {
                 this.parent.bind( object ) ;
             }
-
             $object.each( this.binds, function( fn, name ) {
-                var parent = null ;
+                var _fn = null ;
                 if( object.hasOwnProperty(name) ) {
-                    var parent  = object[ name ] ;
-                } else if( self && this.constructor.prototype.hasOwnProperty(name) ) {
-                    var parent  = this.constructor.prototype[ name ] ;
-                    if( typeof parent !== 'function' ) {
-                        parent = null ;
-                    }
+                    _fn = object[name] ;
+                } else if( parent_prototype && parent_prototype.hasOwnProperty(name)  ) {
+                    _fn = parent_prototype[ name ] ;
                 }
-                if( parent ) {
-                    object[name]    = $fn.proxy( $fn.parent( fn, parent ) , object );
+                if( _fn && $fn.is( parent_prototype[name]) ) {
+                    object[name]    = $fn.proxy( $fn.parent( fn, _fn ), object );
                 } else {
-                    object[name]    = $fn.proxy(fn, object ) ;
+                    object[name]    = $fn.proxy( fn, object ) ;
                 }
             }, this ) ;
         };
-
 
         Class.prototype.extends   = function( properties ) {
 
@@ -321,7 +290,7 @@ var Klass	= (function(){
 
             if ( properties.hasOwnProperty('implements') ) {
                 if( properties['implements'] instanceof Array ) {
-                    _array.each(properties['implements'], function(value) {
+                    $array.each(properties['implements'], function(value) {
                         this.push(value) ;
                     }, this.implements) ;
                 } else {
@@ -331,11 +300,11 @@ var Klass	= (function(){
             }
 
             if(  this.parent ) {
-                _object.each(properties, function(value, name){
+                $object.each(properties, function(value, name){
                     if( $fn.is(value) && this.hasOwnProperty(name) && $fn.is(this[name]) ) {
-                        properties[name]  =  _fn.parent(value, this[name] ) ;
+                        properties[name]  =  $fn.parent(value, this[name] ) ;
                     } else {
-                        properties[name]  =  _object.clone(value);
+                        properties[name]  = $object.clone(value);
                     }
                 }, this.parent.constructor.prototype ) ;
             }
@@ -348,26 +317,29 @@ var Klass	= (function(){
         Class.prototype.construct  = function (object, args ){
             $object.reset(object) ;
 
-            this.bind(object, true ) ;
+            this.bind(object, this.parent ? this.parent.constructor.prototype : null ) ;
 
             var initialized = [] ;
             $array.each(this.implements, function( properties ){
                 if( properties instanceof Function ) {
-                    properties = properties.call( this ) ;
-                }
-                if( typeof properties !== 'object' ) {
-                    throw new Error('implements "' + String( properties ) + '" is not object' );
+                    properties = properties.call( object, this.constructor ) ;
+                } else {
+                    if( typeof properties !== 'object' ) {
+                        throw new Error('implements "' + String( properties ) + '" is not object' );
+                    }
+                    properties  = $object.clone( properties ) ;
                 }
 
                 if ( properties.hasOwnProperty('initialized') ) {
                     initialized.push( properties['initialized'] );
                     delete properties['initialized'] ;
                 }
+
                 if ( properties.hasOwnProperty('Binds') ) {
                     if( ! $array.is(properties['Binds']) ) {
                         throw new Error('Binds must be array');
                     }
-                    _array.each( properties['Binds'], function(p) {
+                    $array.each( properties['Binds'], function(p) {
                         if ( properties.hasOwnProperty(p) ) {
                             var fn  = properties[p] ;
                             delete properties[p];
@@ -382,8 +354,8 @@ var Klass	= (function(){
                     }, object ) ;
                     delete properties['Binds'];
                 }
-                $object.merge(this, properties );
-            }, object ) ;
+                $object.merge(object, properties ) ;
+            }, this ) ;
 
             var self = this.initialize ? this.initialize.apply(object, args) : object ;
 
@@ -399,7 +371,6 @@ var Klass	= (function(){
 
         return Class ;
     })() ;
-
 
     Class.Events  = function() {
         var events = {} ;
@@ -451,7 +422,6 @@ var Klass	= (function(){
         };
     } ;
 
-
     Class.Options  = (function() {
         function $removeOn(string) {
             return string.replace(/^on([A-Z])/, function(full, first) {
@@ -465,8 +435,13 @@ var Klass	= (function(){
                 return string;
             }
         } ;
-        return function() {
+        return function( constructor ) {
             var options_initialized = true ;
+            if( constructor.prototype.hasOwnProperty('options') ) {
+                this.options    = $object.clone( constructor.prototype.options ) ;
+            } else {
+                this.options    = {} ;
+            }
             return {
                 initialized: function() {
                     var fn  = options_initialized ;
@@ -475,45 +450,50 @@ var Klass	= (function(){
                         fn.call(this) ;
                     }
                 } ,
-                setOptions: function(options){
-                    if (typeof options != 'object') {
-                        throw new Error('options is not object') ;
-                    }
-
-                    var scope_initialized = null ;
-                    if ( options.hasOwnProperty('initialized') ) {
-                        if( $fn.is(options['initialized']) ) {
-                            if ( options_initialized ) {
-                                options_initialized  = options['initialized'] ;
-                            } else {
-                                scope_initialized  = options['initialized'] ;
-                            }
-                            delete options['initialized'];
+                setOptions: function(options) {
+                    if( options ) {
+                        if ( typeof options != 'object') {
+                            throw new Error('options is not object') ;
                         }
+                        this.options = $object.merge( options , this.options ) ;
                     }
-
-                    this.options = _object.merge( options, this.options ) ;
 
                     $object.each( this.options, function(value, key ) {
-                        if ( key == 'events') {
+                        if ( key === 'events') {
                             this.addEvents(value) ;
                             delete this.options[key] ;
                         } else {
-                            var type = $tryRemoveOn(key);
-                            if ( key != type && $fn.is(value) ) {
-                                this.addEvent(type, value ) ;
-                                delete this.options[key] ;
+                            if ( $fn.is(value) ) {
+                                var type = $tryRemoveOn(key) ;
+                                if( key != type ) {
+                                    this.addEvent(type, value ) ;
+                                    delete this.options[key] ;
+                                }
                             }
                         }
                     }, this ) ;
+
+                    var scope_initialized = null ;
+
+                    if ( this.options.hasOwnProperty('initialized') ) {
+                        if( $fn.is( this.options['initialized']) ) {
+                            if ( options_initialized ) {
+                                options_initialized  = this.options['initialized'] ;
+                            } else {
+                                scope_initialized  = this.options['initialized'] ;
+                            }
+                            delete this.options['initialized'];
+                        }
+                    }
+
                     if ( scope_initialized ) {
                         scope_initialized.call(this) ;
                     }
+                    return this ;
                 }
             };
         }
     })();
-
 
     var exports  = function ( properties ) {
         var klass    = new Class(constructor, properties) ;
