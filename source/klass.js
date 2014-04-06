@@ -52,7 +52,7 @@ var Klass	= (function(){
     })();
 
 	var $fn	= (function(){
-        
+
 		var fn	= new Type({
 
         }, Function );
@@ -117,7 +117,7 @@ var Klass	= (function(){
                     return self;
                 }
             });
-            Type.implement({
+            Type.implement(array, {
                 contains: function(self, item) {
                     for ( var i = self.length; i--;) {
                         if (self[i] == item)
