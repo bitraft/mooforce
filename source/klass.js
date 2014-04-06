@@ -281,7 +281,7 @@ var Klass	= (function(){
                     } else {
                         throw new Error('Binds method "' + p + '" not exists');
                     }
-                }, type ) ;
+                }, this ) ;
                 delete properties['Binds'];
             }
 
