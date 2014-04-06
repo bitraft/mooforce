@@ -79,56 +79,56 @@ var Klass	= (function(){
 
 	var $array = (function(){
 
-		var array	= new Type({
-            each: function(self, fn, bind) {
-                for ( var i = 0; i < self.length; i++) {
-                    fn.call(bind || self, self[i], i );
+            var array	= new Type({
+                each: function(self, fn, bind) {
+                    for ( var i = 0; i < self.length; i++) {
+                        fn.call(bind || self, self[i], i, bind || self );
+                    }
+                },
+                erase: function(self, item) {
+                    for ( var i = self.length; i--;) {
+                        if ( self[i] === item)
+                            self.splice(i, 1);
+                    }
                 }
-            },
-            erase: function(self, item) {
-                for ( var i = self.length; i--;) {
-                    if ( self[i] === item)
-                        self.splice(i, 1);
-                }
-            }
-        }, Array );
+            }, Array );
 
-        if ( Array.prototype.hasOwnProperty('indexOf') ) {
-            Type.chain(array, {
-                include: function(self, item){
-                    if (-1 == self.indexOf(item))
+            if ( Array.prototype.hasOwnProperty('indexOf') ) {
+                Type.chain(array, {
+                    include: function(self, item){
+                        if (-1 == self.indexOf(item))
+                            self.push(item);
+                        return self ;
+                    }
+                });
+                Type.implement(array, {
+                    contains: function(self, item) {
+                        return -1 != self.indexOf(item);
+                    }
+                });
+            } else {
+                Type.chain(array, {
+                    include: function(self, item){
+                        for ( var i = self.length; i--;) {
+                            if (self[i] == item)
+                                return self;
+                        }
                         self.push(item);
-                    return self ;
-                }
-            });
-            Type.implement(array, {
-                contains: function(self, item) {
-                    return -1 != self.indexOf(item);
-                }
-            });
-        } else {
-            Type.chain(array, {
-                include: function(self, item){
-                    for ( var i = self.length; i--;) {
-                        if (self[i] == item)
-                            return self;
+                        return self;
                     }
-                    self.push(item);
-                    return self;
-                }
-            });
-            Type.implement(array, {
-                contains: function(self, item) {
-                    for ( var i = self.length; i--;) {
-                        if (self[i] == item)
-                            return true;
+                });
+                Type.implement(array, {
+                    contains: function(self, item) {
+                        for ( var i = self.length; i--;) {
+                            if (self[i] == item)
+                                return true;
+                        }
+                        return false;
                     }
-                    return false;
-                }
-            });
-        }
+                });
+            }
 
-		return array ;
+            return array ;
 	})();
 	
 	var $object = (function() {
@@ -515,5 +515,13 @@ var Klass	= (function(){
         klass.implements.push( properties ) ;
     } ;
 
+    exports.each    = function( self, fn, bind ) {
+        if( $array.is(self) ) {
+            return $array.each(self, fn, bind);
+        } else {
+            return $object.each(self, fn, bind);
+        }
+    }
+    
     return exports ;
 })();
