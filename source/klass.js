@@ -52,10 +52,7 @@ var Klass	= (function(){
     })();
 
 	var $fn	= (function(){
-        var enumerables = true;
-        for (var i in {toString: 1}) enumerables = null;
-        if (enumerables) enumerables = ['hasOwnProperty', 'valueOf', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString', 'toString', 'constructor'];
-
+        
 		var fn	= new Type({
 
         }, Function );
@@ -210,7 +207,7 @@ var Klass	= (function(){
                 this.parent = null ;
             }
 
-            this.constructor    = constructor ;
+            this.Constructor    = constructor ;
             classes.push( this ) ;
 
             if ( properties.hasOwnProperty('initialize') ) {
@@ -229,7 +226,7 @@ var Klass	= (function(){
 
             this.binds   = {} ;
             this.implements = [ Class.Events, Class.Options ] ;
-            this.constructor.prototype  = {} ;
+            this.Constructor.prototype  = {} ;
 
             this.extends( properties ) ;
         };
@@ -237,7 +234,7 @@ var Klass	= (function(){
         Class.find = function(constructor){
             var len = classes.length ;
             for ( var i = 0; i < len ; i++) {
-                if( classes[i].constructor === constructor ) {
+                if( classes[i].Constructor === constructor ) {
                     return classes[i] ;
                 }
             }
@@ -306,23 +303,22 @@ var Klass	= (function(){
                     } else {
                         properties[name]  = $object.clone(value);
                     }
-                }, this.parent.constructor.prototype ) ;
+                }, this.parent.Constructor.prototype ) ;
             }
 
-            this.constructor.prototype  = $object.merge( properties ,  this.parent ? this.parent.constructor.prototype : {} ) ;
+            this.Constructor.prototype  = $object.merge( properties ,  this.parent ? this.parent.Constructor.prototype : {} ) ;
 
         };
-
 
         Class.prototype.construct  = function (object, args ){
             $object.reset(object) ;
 
-            this.bind(object, this.parent ? this.parent.constructor.prototype : null ) ;
+            this.bind(object, this.parent ? this.parent.Constructor.prototype : null ) ;
 
             var initialized = [] ;
             $array.each(this.implements, function( properties ){
                 if( properties instanceof Function ) {
-                    properties = properties.call( object, this.constructor ) ;
+                    properties = properties.call( object, this.Constructor ) ;
                 } else {
                     if( typeof properties !== 'object' ) {
                         throw new Error('implements "' + String( properties ) + '" is not object' );
