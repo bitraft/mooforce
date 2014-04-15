@@ -240,7 +240,7 @@ var Klass = (function() {
             this.implements = [Class.Events, Class.Options];
             this.Constructor.prototype = {};
 
-            this.extends(properties);
+            this.extend(properties);
         }
         ;
 
@@ -273,7 +273,7 @@ var Klass = (function() {
             }, this);
         };
 
-        Class.prototype.extends = function(properties) {
+        Class.prototype.extend = function(properties) {
 
             if (!$object.is(properties)) {
                 throw new Error('implements properties must be object');
@@ -323,7 +323,7 @@ var Klass = (function() {
 
         };
 
-        Class.prototype.construct = function(object, args) {
+        Class.prototype.Construct = function(object, args) {
             $object.reset(object);
 
             this.bind(object, this.parent ? this.parent.Constructor.prototype : null);
@@ -508,18 +508,18 @@ var Klass = (function() {
     var exports = function(properties) {
         var klass = new Class(constructor, properties);
         function constructor() {
-            return klass.construct(this, arguments);
+            return klass.Construct(this, arguments);
         }
         ;
         return constructor;
     };
 
-    exports.extends = function(constructor, properties) {
+    exports.extend = function(constructor, properties) {
         var klass = Class.find(constructor);
         if (!klass) {
             throw new Error('extends klass is invalid');
         }
-        klass.extends(properties);
+        klass.extend(properties);
     };
 
     exports.implements = function(constructor, properties) {
